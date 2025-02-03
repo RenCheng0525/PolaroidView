@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>拍立得風格圖片瀏覽器</title>
+    <style>
+        body {
+            margin: 0;
+            background: #2c2c2c;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        canvas {
+            cursor: move;
+        }
+
+        #controls {
+            position: fixed;
+            left: -320px;
+            top: 0;
+            bottom: 0;
+            width: 320px;
+            background: rgba(20, 20, 20, 0.95);
+            z-index: 100;
+            transition: left 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #controls.open {
+            left: 0;
+        }
+
+        .controls-handle {
+            position: absolute;
+            right: -50px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 100px;
+            background: rgba(20, 20, 20, 0.95);
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: none;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls-content {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .section {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            color: white;
+            font-size: 16px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title i {
+            opacity: 0.7;
+        }
+
+        .auto-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 40px;
+            height: 20px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .4s;
+            border-radius: 20px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.toggle-slider {
+            background-color: #4CAF50;
+        }
+
+        input:checked+.toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        .layout-picker,
+        .crop-picker {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .option-btn {
+            padding: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .option-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .option-btn.active {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .option-btn i {
+            font-size: 16px;
+            opacity: 0.7;
+        }
+
+        .color-picker {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .color-option {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        .color-option::after {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+
+        .color-option.active::after {
+            border-color: white;
+        }
+
+        .file-upload {
+            position: relative;
+            width: 100%;
+            height: 100px;
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .file-upload:hover {
+            border-color: rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .file-upload input {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .upload-text {
+            text-align: center;
+        }
+
+        .upload-text i {
+            font-size: 24px;
+            margin-bottom: 8px;
+            opacity: 0.7;
+        }
+
+        .shortcuts {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .shortcut-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 4px 0;
+        }
+
+        .shortcut-key {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .hint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px 24px;
+            border-radius: 50px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .hint.show {
+            opacity: 1;
+        }
+
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 16px 32px;
+            border-radius: 8px;
+            display: none;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #loading.show {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #loading i {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+
+<body>
+    <div id="controls">
+        <div class="controls-handle">
+            <i class="fas fa-chevron-right"></i>
+        </div>
+        <div class="controls-content">
+            <div class="section">
+                <div class="section-title">
+                    <i class="fas fa-folder-open"></i>上傳照片
+                </div>
+                <div class="file-upload">
+                    <input type="file" id="folderInput" webkitdirectory directory multiple accept="image/*">
+                    <div class="upload-text">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <div>點擊或拖曳資料夾</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <i class="fas fa-th"></i>排列方式
+                    </div>
+                    <div class="auto-toggle">
+                        <span>動態</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="autoArrange">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="layout-picker">
+                    <button class="option-btn active" data-layout="stack">
+                        <i class="fas fa-layer-group"></i>堆疊
+                    </button>
+                    <button class="option-btn" data-layout="fan">
+                        <i class="fas fa-fan"></i>扇形
+                    </button>
+                    <button class="option-btn" data-layout="grid">
+                        <i class="fas fa-th"></i>網格
+                    </button>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">
+                    <i class="fas fa-crop-alt"></i>裁切方式
+                </div>
+                <div class="crop-picker">
+                    <button class="option-btn active" data-crop="smart">
+                        <i class="fas fa-magic"></i>智能裁切
+                    </button>
+                    <button class="option-btn" data-crop="stretch">
+                        <i class="fas fa-expand-arrows-alt"></i>完全縮放
+                    </button>
+                    <button class="option-btn" data-crop="contain">
+                        <i class="fas fa-compress"></i>最適大小
+                    </button>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">
+                    <i class="fas fa-palette"></i>相框顏色
+                </div>
+                <div class="color-picker">
+                    <div class="color-option active" data-color="white" style="background: white"></div>
+                    <div class="color-option" data-color="#f5deb3" style="background: #f5deb3"></div>
+                    <div class="color-option" data-color="#ffe4e1" style="background: #ffe4e1"></div>
+                    <div class="color-option" data-color="#fff8dc" style="background: #fff8dc"></div>
+                    <div class="color-option" data-color="#f0f8ff" style="background: #f0f8ff"></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">
+                    <i class="fas fa-keyboard"></i>快捷鍵
+                </div>
+                <div class="shortcuts">
+                    <div class="shortcut-item">
+                        <span>放大查看</span>
+                        <span class="shortcut-key">雙擊</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span>退出放大</span>
+                        <span class="shortcut-key">ESC</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span>刪除照片</span>
+                        <span class="shortcut-key">Delete</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="hint" class="hint">
+        <i class="fas fa-info-circle"></i>
+        拖曳照片角落可以縮放與旋轉
+    </div>
+    <div id="loading">
+        <i class="fas fa-spinner"></i>
+        處理中...
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/smartcrop/2.0.3/smartcrop.js"></script>
+
+    <script>
+        // 全局變量與狀態管理
+        let currentLayout = 'stack';
+        let oldLayout = 'stack';
+        let currentCropMode = 'smart';
+        let selectedColor = 'white';
+        let autoArrangeEnabled = false;
+        let autoArrangeTimer = null;
+        const SAFE_MARGIN = 50;
+        const AUTO_ARRANGE_INTERVAL = 5000;
+
+        // DOM 元素
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const hint = document.getElementById('hint');
+        const loading = document.getElementById('loading');
+        const controls = document.getElementById('controls');
+        const controlsHandle = document.querySelector('.controls-handle');
+        const autoArrangeToggle = document.getElementById('autoArrange');
+
+        // 照片與互動狀態
+        const polaroids = [];
+        let isDragging = false;
+        let isResizing = false;
+        let dragTarget = null;
+        let lastX = 0;
+        let lastY = 0;
+        let resizeCorner = '';
+        let zoomedPolaroid = null;
+        let animationId = null;
+        let hintTimeout = null;
+
+        // 工具函數
+        function showHint() {
+            if (hintTimeout) clearTimeout(hintTimeout);
+            hint.classList.add('show');
+            hintTimeout = setTimeout(() => hint.classList.remove('show'), 2000);
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            drawAll();
+        }
+
+        // 基本事件監聽器設置
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // 控制面板toggle
+        controlsHandle.addEventListener('click', () => {
+            controls.classList.toggle('open');
+            const icon = controlsHandle.querySelector('i');
+            icon.className = controls.classList.contains('open') ?
+                'fas fa-chevron-left' : 'fas fa-chevron-right';
+        });
+
+        // 動態排列開關
+        autoArrangeToggle.addEventListener('change', (e) => {
+            autoArrangeEnabled = e.target.checked;
+
+            if (autoArrangeEnabled) {
+                oldLayout = currentLayout;
+
+                startAutoArrange();
+            } else {
+                stopAutoArrange();
+                
+                currentLayout = oldLayout;
+            }
+        });
+
+        function randomLayout() {
+            const layouts = ['stack', 'fan', 'grid'];
+            const randomIndex = Math.floor(Math.random() * layouts.length);
+            currentLayout = layouts[randomIndex];
+        }
+
+        function startAutoArrange() {
+            if (autoArrangeTimer) {
+                clearInterval(autoArrangeTimer);
+            }
+
+            autoArrangeTimer = setInterval(() => {
+                randomLayout();
+                shuffleArray(polaroids);
+                arrangeLayout(true);
+            }, AUTO_ARRANGE_INTERVAL);
+        }
+
+        function stopAutoArrange() {
+            if (autoArrangeTimer) {
+                clearInterval(autoArrangeTimer);
+                autoArrangeTimer = null;
+            }
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // UI選項事件處理
+        document.querySelectorAll('.option-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const type = btn.parentElement.classList.contains('layout-picker') ? 'layout' : 'crop';
+                const value = btn.dataset[type];
+
+                btn.parentElement.querySelector('.active').classList.remove('active');
+                btn.classList.add('active');
+
+                if (type === 'layout') {
+                    currentLayout = value;
+                    if (currentLayout !== 'stack' && autoArrangeEnabled) {
+                        shuffleArray(polaroids);
+                    }
+                    arrangeLayout(true);
+                } else {
+                    currentCropMode = value;
+                    reloadAllImages();
+                }
+            });
+        });
+
+        // 顏色選擇器
+        document.querySelectorAll('.color-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                document.querySelector('.color-option.active').classList.remove('active');
+                option.classList.add('active');
+                selectedColor = option.dataset.color;
+                polaroids.forEach(p => p.color = selectedColor);
+                drawAll();
+            });
+        });
+
+        // Polaroid 類定義
+        class Polaroid {
+            constructor(image, x, y, color = 'white') {
+                this.image = image;
+                this.x = x;
+                this.y = y;
+                this.rotation = (Math.random() - 0.5) * 0.3;
+                this.frameWidth = 280;
+                this.frameHeight = 340;
+                this.scale = 1;
+                this.color = color;
+                this.tilt = 0;
+                this.targetTilt = 0;
+                this.zIndex = Date.now();
+                this.smartCropResult = null;
+                this.originalRatio = image.width / image.height;
+
+                // 動畫相關屬性
+                this.targetX = x;
+                this.targetY = y;
+                this.targetRotation = this.rotation;
+                this.targetScale = 1;
+            }
+
+            boundPosition() {
+                this.x = Math.max(-this.frameWidth / 2 + SAFE_MARGIN,
+                    Math.min(canvas.width - this.frameWidth / 2 - SAFE_MARGIN, this.x));
+                this.y = Math.max(-this.frameHeight / 2 + SAFE_MARGIN,
+                    Math.min(canvas.height - this.frameHeight / 2 - SAFE_MARGIN, this.y));
+                this.targetX = Math.max(-this.frameWidth / 2 + SAFE_MARGIN,
+                    Math.min(canvas.width - this.frameWidth / 2 - SAFE_MARGIN, this.targetX));
+                this.targetY = Math.max(-this.frameHeight / 2 + SAFE_MARGIN,
+                    Math.min(canvas.height - this.frameHeight / 2 - SAFE_MARGIN, this.targetY));
+            }
+
+            async initSmartCrop() {
+                if (currentCropMode === 'smart') {
+                    const cropResult = await SmartCrop.crop(this.image, {
+                        width: this.frameWidth - 30,
+                        height: this.frameHeight - 60,
+                        minScale: 1.0,
+                        ruleOfThirds: true,
+                        boost: [
+                            {
+                                x: 0,
+                                y: 0,
+                                width: this.image.width,
+                                height: this.image.height * 0.85,
+                                weight: 1.2
+                            }
+                        ]
+                    });
+                    this.smartCropResult = cropResult.topCrop;
+                }
+            }
+
+            drawImage(ctx) {
+                // 啟用反鋸齒並設定高品質
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                const frameW = this.frameWidth - 30;
+                const frameH = this.frameHeight - 60;
+
+                if (currentCropMode === 'smart' && this.smartCropResult) {
+                    const crop = this.smartCropResult;
+                    ctx.drawImage(
+                        this.image,
+                        crop.x, crop.y, crop.width, crop.height,
+                        0, 0, frameW * this.scale, frameH * this.scale
+                    );
+                } else if (currentCropMode === 'stretch') {
+                    ctx.drawImage(
+                        this.image,
+                        0, 0, frameW * this.scale, frameH * this.scale
+                    );
+                } else {
+                    let drawW, drawH, offsetX = 0, offsetY = 0;
+                    const frameRatio = frameW / frameH;
+
+                    if (this.originalRatio > frameRatio) {
+                        drawW = frameW * this.scale;
+                        drawH = drawW / this.originalRatio;
+                        offsetY = (frameH * this.scale - drawH) / 2;
+                    } else {
+                        drawH = frameH * this.scale;
+                        drawW = drawH * this.originalRatio;
+                        offsetX = (frameW * this.scale - drawW) / 2;
+                    }
+
+                    ctx.drawImage(
+                        this.image,
+                        offsetX, offsetY, drawW, drawH
+                    );
+                }
+
+                // 如果需要關閉反鋸齒
+                // ctx.imageSmoothingEnabled = false;
+            }
+
+            draw(isHovered = false) {
+                ctx.save();
+                ctx.translate(this.x + this.frameWidth * this.scale / 2,
+                    this.y + this.frameHeight * this.scale / 2);
+                ctx.rotate(this.rotation + this.tilt);
+
+                // 照片堆疊陰影
+                ctx.shadowColor = 'rgba(0,0,0,0.4)';
+                ctx.shadowBlur = 20;
+                ctx.shadowOffsetX = 10;
+                ctx.shadowOffsetY = 10;
+
+                // 外框
+                ctx.fillStyle = this.color;
+                const radius = 8 * this.scale;
+                this.roundRect(
+                    -this.frameWidth * this.scale / 2,
+                    -this.frameHeight * this.scale / 2,
+                    this.frameWidth * this.scale,
+                    this.frameHeight * this.scale,
+                    radius
+                );
+
+                // 重置陰影
+                ctx.shadowColor = 'transparent';
+
+                // 圖片區域
+                ctx.save();
+                ctx.translate(-this.frameWidth * this.scale / 2 + 15 * this.scale,
+                    -this.frameHeight * this.scale / 2 + 15 * this.scale);
+
+                // 圖片邊框陰影
+                ctx.shadowColor = 'rgba(0,0,0,0.2)';
+                ctx.shadowBlur = 5;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+
+                // 復古效果
+                // ctx.filter = 'contrast(1.1) saturate(1.1) brightness(1.05) sepia(0.1)';
+
+                this.drawImage(ctx);
+
+                ctx.restore();
+
+                if (isHovered && !zoomedPolaroid) {
+                    this.drawControls();
+                }
+                ctx.restore();
+            }
+
+            drawControls() {
+                ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                ctx.shadowBlur = 5;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+
+                const cornerSize = 24 * this.scale;
+                ctx.fillStyle = 'rgba(255,255,255,0.9)';
+
+                // 旋轉控制點（右下）
+                ctx.beginPath();
+                ctx.arc(
+                    this.frameWidth * this.scale / 2 - cornerSize / 2,
+                    this.frameHeight * this.scale / 2 - cornerSize / 2,
+                    cornerSize / 2, 0, Math.PI * 2
+                );
+                ctx.fill();
+
+                // 縮放控制點（左下）
+                ctx.beginPath();
+                ctx.arc(
+                    -this.frameWidth * this.scale / 2 + cornerSize / 2,
+                    this.frameHeight * this.scale / 2 - cornerSize / 2,
+                    cornerSize / 2, 0, Math.PI * 2
+                );
+                ctx.fill();
+
+                //showHint();
+            }
+
+            roundRect(x, y, w, h, radius) {
+                ctx.beginPath();
+                ctx.moveTo(x + radius, y);
+                ctx.arcTo(x + w, y, x + w, y + h, radius);
+                ctx.arcTo(x + w, y + h, x, y + h, radius);
+                ctx.arcTo(x, y + h, x, y, radius);
+                ctx.arcTo(x, y, x + w, y, radius);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            getCorners() {
+                const corners = [];
+                const cos = Math.cos(this.rotation + this.tilt);
+                const sin = Math.sin(this.rotation + this.tilt);
+                const centerX = this.x + this.frameWidth * this.scale / 2;
+                const centerY = this.y + this.frameHeight * this.scale / 2;
+                const cornerSize = 24 * this.scale;
+
+                corners.push({
+                    x: centerX + (this.frameWidth * this.scale / 2 - cornerSize / 2) * cos -
+                        (this.frameHeight * this.scale / 2 - cornerSize / 2) * sin,
+                    y: centerY + (this.frameWidth * this.scale / 2 - cornerSize / 2) * sin +
+                        (this.frameHeight * this.scale / 2 - cornerSize / 2) * cos,
+                    type: 'right'
+                });
+
+                corners.push({
+                    x: centerX + (-this.frameWidth * this.scale / 2 + cornerSize / 2) * cos -
+                        (this.frameHeight * this.scale / 2 - cornerSize / 2) * sin,
+                    y: centerY + (-this.frameWidth * this.scale / 2 + cornerSize / 2) * sin +
+                        (this.frameHeight * this.scale / 2 - cornerSize / 2) * cos,
+                    type: 'left'
+                });
+
+                return corners;
+            }
+
+            isPointInside(x, y) {
+                const centerX = this.x + this.frameWidth * this.scale / 2;
+                const centerY = this.y + this.frameHeight * this.scale / 2;
+                const dx = x - centerX;
+                const dy = y - centerY;
+                const rotatedX = dx * Math.cos(-(this.rotation + this.tilt)) -
+                    dy * Math.sin(-(this.rotation + this.tilt));
+                const rotatedY = dx * Math.sin(-(this.rotation + this.tilt)) +
+                    dy * Math.cos(-(this.rotation + this.tilt));
+
+                return Math.abs(rotatedX) < this.frameWidth * this.scale / 2 &&
+                    Math.abs(rotatedY) < this.frameHeight * this.scale / 2;
+            }
+
+            isPointInCorner(x, y) {
+                const corners = this.getCorners();
+                const threshold = 24 * this.scale;
+
+                for (let corner of corners) {
+                    if (Math.abs(x - corner.x) < threshold &&
+                        Math.abs(y - corner.y) < threshold) {
+                        return corner.type;
+                    }
+                }
+                return '';
+            }
+
+            update() {
+                let needsUpdate = false;
+
+                // 位置動畫
+                if (Math.abs(this.x - this.targetX) > 0.5 ||
+                    Math.abs(this.y - this.targetY) > 0.5) {
+                    this.x += (this.targetX - this.x) * 0.1;
+                    this.y += (this.targetY - this.y) * 0.1;
+                    needsUpdate = true;
+                }
+
+                // 傾斜動畫
+                if (Math.abs(this.tilt - this.targetTilt) > 0.001) {
+                    this.tilt += (this.targetTilt - this.tilt) * 0.2;
+                    needsUpdate = true;
+                } else {
+                    this.tilt = this.targetTilt;
+                }
+
+                // 旋轉動畫
+                if (Math.abs(this.rotation - this.targetRotation) > 0.001) {
+                    this.rotation += (this.targetRotation - this.rotation) * 0.1;
+                    needsUpdate = true;
+                }
+
+                // 縮放動畫
+                if (Math.abs(this.scale - this.targetScale) > 0.001) {
+                    this.scale += (this.targetScale - this.scale) * 0.1;
+                    needsUpdate = true;
+                }
+
+                return needsUpdate;
+            }
+
+            setTarget(x, y, rotation, scale) {
+                this.targetX = x;
+                this.targetY = y;
+                this.targetRotation = rotation;
+                this.targetScale = scale;
+                this.boundPosition();
+            }
+        }
+
+        // 布局函數
+        function arrangeLayout(animate = false) {
+            if (polaroids.length === 0) return;
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            switch (currentLayout) {
+                case 'stack':
+                    arrangeStack(centerX, centerY);
+                    break;
+                case 'fan':
+                    arrangeFan(centerX, centerY);
+                    break;
+                case 'grid':
+                    arrangeGrid(centerX, centerY);
+                    break;
+            }
+            if (animate) requestAnimationFrame(animateLayout);
+        }
+
+        function arrangeStack(centerX, centerY) {
+            const spreadX = canvas.width * 0.6;
+            const spreadY = canvas.height * 0.5;
+
+            polaroids.forEach(polaroid => {
+                const x = centerX - (spreadX * 0.7) + Math.random() * spreadX;
+                const y = centerY - (spreadY * 0.7) + Math.random() * spreadY;
+                const rotation = (Math.random() - 0.5) * 1.2;
+                polaroid.setTarget(x, y, rotation, 1);
+            });
+        }
+
+        function arrangeFan(centerX, centerY) {
+            const totalAngle = Math.min(Math.PI * 0.6, Math.PI * 0.5 * (polaroids.length / 6));
+            const angleStep = totalAngle / (polaroids.length - 1 || 1);
+            const startAngle = -Math.PI / 2 - totalAngle / 2;
+            const radius = Math.min(canvas.width, canvas.height) * 0.35;
+            const verticalOffset = canvas.height * 0.25;
+
+            polaroids.forEach((polaroid, i) => {
+                const angle = startAngle + angleStep * i;
+                const x = centerX + radius * Math.cos(angle) - polaroid.frameWidth / 2;
+                const y = centerY + radius * Math.sin(angle) - polaroid.frameHeight / 2 + verticalOffset;
+                const rotation = angle + Math.PI / 2;
+                polaroid.setTarget(x, y, rotation, 1);
+            });
+        }
+
+        function arrangeGrid(centerX, centerY) {
+            const cols = Math.ceil(Math.sqrt(polaroids.length * 1.5));
+            const spacing = 40;
+            const totalWidth = cols * (polaroids[0].frameWidth + spacing);
+            let rows = Math.ceil(polaroids.length / cols);
+            let startX = centerX - totalWidth / 2 + polaroids[0].frameWidth / 2;
+            let startY = centerY - (rows * (polaroids[0].frameHeight + spacing)) / 2 + polaroids[0].frameHeight / 2;
+
+            polaroids.forEach((polaroid, i) => {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                const x = startX + col * (polaroid.frameWidth + spacing);
+                const y = startY + row * (polaroid.frameHeight + spacing);
+                const rotation = (Math.random() - 0.5) * 0.2;
+                polaroid.setTarget(x, y, rotation, 1);
+            });
+        }
+
+        // 檔案上傳處理
+        document.getElementById('folderInput').addEventListener('change', async (e) => {
+            loading.classList.add('show');
+            const files = Array.from(e.target.files).filter(file => file.type.startsWith('image/'));
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                await loadImage(file);
+            }
+
+            loading.classList.remove('show');
+            if (currentLayout !== 'stack') {
+                arrangeLayout(true);
+            }
+        });
+
+        async function loadImage(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = async () => {
+                    const x = canvas.width / 2 - 150 + (Math.random() - 0.5) * 100;
+                    const y = canvas.height / 2 - 150 + (Math.random() - 0.5) * 100;
+
+                    const polaroid = new Polaroid(img, x, y, selectedColor);
+                    await polaroid.initSmartCrop();
+                    polaroids.push(polaroid);
+                    drawAll();
+                    resolve();
+                };
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        // 滑鼠事件處理
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('mouseup', handleMouseUp);
+        canvas.addEventListener('mouseleave', handleMouseLeave);
+        canvas.addEventListener('dblclick', handleDblClick);
+
+        function handleMouseDown(e) {
+            if (zoomedPolaroid) {
+                zoomedPolaroid = null;
+                drawAll();
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            for (let i = polaroids.length - 1; i >= 0; i--) {
+                const corner = polaroids[i].isPointInCorner(x, y);
+                if (corner) {
+                    isResizing = true;
+                    dragTarget = polaroids[i];
+                    resizeCorner = corner;
+                    lastX = x;
+                    lastY = y;
+                    dragTarget.zIndex = Date.now();
+                    break;
+                }
+                if (polaroids[i].isPointInside(x, y)) {
+                    isDragging = true;
+                    dragTarget = polaroids[i];
+                    lastX = x;
+                    lastY = y;
+                    dragTarget.zIndex = Date.now();
+                    break;
+                }
+            }
+            if (dragTarget) {
+                polaroids.sort((a, b) => a.zIndex - b.zIndex);
+                drawAll();
+            }
+        }
+
+        function handleMouseMove(e) {
+            if (zoomedPolaroid) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            let hoveredPolaroid = null;
+            for (let i = polaroids.length - 1; i >= 0; i--) {
+                if (polaroids[i].isPointInside(x, y)) {
+                    hoveredPolaroid = polaroids[i];
+                    break;
+                }
+            }
+
+            if (isDragging && dragTarget) {
+                handleDragging(x, y);
+            } else if (isResizing && dragTarget) {
+                handleResizing(x, y);
+            } else {
+                drawAll(hoveredPolaroid);
+            }
+        }
+
+        function handleDragging(x, y) {
+            dragTarget.x += x - lastX;
+            dragTarget.y += y - lastY;
+            dragTarget.targetX = dragTarget.x;
+            dragTarget.targetY = dragTarget.y;
+            dragTarget.boundPosition();
+
+            const speed = Math.sqrt(Math.pow(x - lastX, 2) + Math.pow(y - lastY, 2));
+            dragTarget.targetTilt = (x - lastX) * 0.003 * Math.min(1, speed / 10);
+
+            lastX = x;
+            lastY = y;
+            requestAnimationFrame(animate);
+        }
+
+        function handleResizing(x, y) {
+            const centerX = dragTarget.x + dragTarget.frameWidth * dragTarget.scale / 2;
+            const centerY = dragTarget.y + dragTarget.frameHeight * dragTarget.scale / 2;
+            const dx = x - centerX;
+            const dy = y - centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const currentAngle = Math.atan2(dy, dx);
+
+            if (resizeCorner === 'right') {
+                if (!dragTarget.lastAngle) {
+                    dragTarget.lastAngle = currentAngle;
+                    dragTarget.lastRotation = dragTarget.rotation;
+                }
+                let angleDiff = currentAngle - dragTarget.lastAngle;
+                dragTarget.rotation = dragTarget.lastRotation + angleDiff;
+                dragTarget.targetRotation = dragTarget.rotation;
+            } else if (resizeCorner === 'left') {
+                const newScale = Math.max(0.2, Math.min(3, distance / (dragTarget.frameWidth / 1.5)));
+                dragTarget.scale = newScale;
+                dragTarget.targetScale = newScale;
+            }
+            requestAnimationFrame(animate);
+        }
+
+        function handleMouseUp() {
+            if (dragTarget) {
+                dragTarget.targetTilt = 0;
+                requestAnimationFrame(animate);
+            }
+            isDragging = false;
+            isResizing = false;
+            if (dragTarget) {
+                dragTarget.startAngle = null;
+                dragTarget.lastAngle = null;
+            }
+            dragTarget = null;
+        }
+
+        function handleMouseLeave() {
+            if (dragTarget) {
+                dragTarget.targetTilt = 0;
+            }
+            isDragging = false;
+            isResizing = false;
+            dragTarget = null;
+            drawAll();
+        }
+
+        function handleDblClick(e) {
+            if (zoomedPolaroid) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            for (let i = polaroids.length - 1; i >= 0; i--) {
+                if (polaroids[i].isPointInside(x, y)) {
+                    zoomedPolaroid = polaroids[i];
+                    drawAll();
+                    break;
+                }
+            }
+        }
+
+        // 鍵盤事件
+        document.addEventListener('keydown', (e) => {
+            if ((e.key === 'Delete' || e.key === 'Backspace') && !zoomedPolaroid) {
+                if (polaroids.length > 0) {
+                    polaroids.pop();
+                    if (currentLayout !== 'stack') {
+                        arrangeLayout(true);
+                    } else {
+                        drawAll();
+                    }
+                }
+            } else if (e.key === 'Escape' && zoomedPolaroid) {
+                zoomedPolaroid = null;
+                drawAll();
+            }
+        });
+
+        // 動畫與繪製
+        function animate() {
+            let needsUpdate = false;
+            polaroids.forEach(polaroid => {
+                if (polaroid.update()) needsUpdate = true;
+            });
+            drawAll();
+            if (needsUpdate) requestAnimationFrame(animate);
+        }
+
+        function animateLayout() {
+            let needsUpdate = false;
+            polaroids.forEach(polaroid => {
+                if (polaroid.update()) needsUpdate = true;
+            });
+            drawAll();
+            if (needsUpdate) requestAnimationFrame(animateLayout);
+        }
+
+        function drawAll(hoveredPolaroid = null) {
+            ctx.fillStyle = '#2c2c2c';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (zoomedPolaroid) {
+                drawZoomedPolaroid();
+            } else {
+                polaroids.forEach(polaroid => {
+                    polaroid.draw(polaroid === hoveredPolaroid);
+                });
+            }
+        }
+
+        function drawZoomedPolaroid() {
+            ctx.fillStyle = 'rgba(0,0,0,0.85)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const scale = Math.min(
+                canvas.width / zoomedPolaroid.frameWidth * 0.8,
+                canvas.height / zoomedPolaroid.frameHeight * 0.8
+            );
+
+            const tempState = {
+                scale: zoomedPolaroid.scale,
+                x: zoomedPolaroid.x,
+                y: zoomedPolaroid.y,
+                rotation: zoomedPolaroid.rotation
+            };
+
+            zoomedPolaroid.scale = scale;
+            zoomedPolaroid.x = canvas.width / 2 - zoomedPolaroid.frameWidth * scale / 2;
+            zoomedPolaroid.y = canvas.height / 2 - zoomedPolaroid.frameHeight * scale / 2;
+            zoomedPolaroid.rotation = 0;
+            zoomedPolaroid.draw(false);
+
+            Object.assign(zoomedPolaroid, tempState);
+        }
+
+        async function reloadAllImages() {
+            loading.classList.add('show');
+            for (let polaroid of polaroids) {
+                await polaroid.initSmartCrop();
+            }
+            loading.classList.remove('show');
+            drawAll();
+        }
+    </script>
+</body>
+
+</html>
